@@ -1,0 +1,12 @@
+
+`r paste0('### ', quest)`
+
+```{r fig.width=10}
+subpage_data2 %>% 
+  ggplot(aes(x = as.factor(response)))+geom_bar()+
+  labs(title = str_wrap(paste(subpage_data2$question[1]), 100), x = "Response", 
+       y = "Count") +
+  scale_x_discrete(breaks = subpage_data2$response,
+                   label=subpage_data2$response_descr)+
+  theme_classic() 
+```

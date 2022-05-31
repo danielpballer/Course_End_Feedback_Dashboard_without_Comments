@@ -1,0 +1,155 @@
+---
+title: "Course End Feedback Dashboard Kinesiology AY22-2"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    source_code: embed
+    navbar:
+      - { title: "Created by: Daniel Baller", icon: "fa-github", href: "https://github.com/danielpballer"  }
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(gt)
+library(knitr)
+library(glue)
+library(tidytext)
+library(tm)
+library(syuzhet)
+library(tidytext)
+library(DT)
+```
+
+```{r Reading in data}
+#update the name of the file containing numerical responses (likert questions)
+num_data = read_csv("KINES_SurveyData_USMA-WP_2022_2022-2_Standard_Numerics_20220516102345_9820MA1HV-NO-SECTION-ID.csv")
+```
+
+```{r adding names to the quantitative questions}
+#adding names to the questions i.e. Question 1...Question n and keeping the same names across courses
+
+#finding the minimum number of questions asked to id the standard questions asked for every course
+num_data = num_data %>% 
+  distinct(crs_number, question) %>% 
+  group_by(crs_number) %>% 
+  mutate(num_quest = max(row_number())) %>% 
+  as.data.frame() %>% 
+  ungroup() %>% 
+  filter(num_quest == min(num_quest)) %>% 
+  #giving the standard questions names Question 1 .... Question n
+  head(.$num_quest[1]) %>% 
+  mutate(Question_num = paste("Question",row_number())) %>% 
+  #adding the question numbers to the dataset
+  select(question, Question_num) %>% 
+  right_join(., num_data) %>% 
+  #numbering the course specific questions
+  group_by(crs_number) %>% 
+  arrange(Question_num) %>% 
+  distinct(question, .keep_all = T) %>% 
+  mutate(Question_num = case_when(is.na(Question_num)==T ~ paste("Question", row_number()),
+            TRUE~Question_num)) %>% 
+  ungroup() %>% 
+  select(crs_number, question, Question_num) %>% 
+  #adding all question names 
+  right_join(.,num_data, by = c("crs_number", "question")) %>% 
+  mutate(Question_num = fct_reorder(Question_num,
+                                    parse_number(Question_num)))
+
+# #How many standard questions are asked department wide
+standard_quest = num_data %>% 
+  distinct(crs_number, question) %>% 
+  group_by(crs_number) %>% 
+  mutate(num_quest = max(row_number())) %>% 
+  as.data.frame() %>% 
+  ungroup() %>% 
+  filter(num_quest == min(num_quest)) %>% 
+  summarise(min(num_quest)) %>% 
+  pull()
+```
+
+Department Overview
+================================================================================
+
+Row {.tabset}
+--------------------------------------------------------------------------------
+
+```{r render subpages department, include = FALSE}
+#adding the average by course and question to each observation
+plot_data = num_data %>% 
+  filter(response>0) %>% 
+  group_by(crs_number, Question_num) %>% 
+  summarise(average = mean(response), number = n()) %>% 
+  right_join(num_data, by = c("crs_number", "Question_num")) %>%
+  filter(response>0) %>% 
+  ungroup() %>% 
+  mutate(ordering_num = parse_number(crs_number))
+  
+#creating a vector of question names for the tabs on the landing page
+dept_quest <- sort(unique(plot_data$Question_num))
+#only selecting standard (department wide) questions
+dept_quest = dept_quest[1:standard_quest]
+
+#paring down the data to only contain responses to department wide questions
+plot_data = plot_data %>% filter(Question_num %in% dept_quest)
+
+# Create variable which stores all subpages outputs
+out_dept = NULL
+
+# Set knitr options to allow duplicate labels (needed for the subpages)
+options(knitr.duplicate.label = 'allow')
+
+# Create temporary environment which we use for knitting subpage_dept.RMD 
+subpage_env_dept <- new.env()
+
+#for loop for creating a plot for each question
+for (q_dept in dept_quest) {
+  # Filter data for question 
+  plot_data2 <- plot_data %>% 
+    filter(Question_num == q_dept)
+  
+  # Assign filtered data and product group to subpage_env_dept 
+  assign("plot_data2", plot_data2, subpage_env_dept)
+  assign("dept_quest", q_dept, subpage_env_dept)
+  
+  # Knit subpage.RMD using the subpage_env and add result to out vector
+  out_dept = c(out_dept, knitr::knit_child('subpage_dept.RMD', envir = subpage_env_dept))
+}
+```
+
+`r paste(knitr::knit_child(text = out_dept), collapse = '')`
+
+```{r render subpages by course numeric, include=FALSE}
+# Get all unique course numbers for the subpages
+course <- unique(num_data$crs_number)
+
+# Create variable which stores all subpages outputs
+out = NULL
+
+# Set knitr options to allow duplicate labels (needed for the subpages)
+options(knitr.duplicate.label = 'allow')
+
+# Create temporary environment which we use for knitting subpages.RMD 
+subpage_env <- new.env()
+
+#for loop to run through all of the courses
+for (crs in course) {
+  # Filter data for product group 
+  subpage_data = num_data %>% 
+    filter(crs_number == crs)
+  
+ # subpage_comments = comment_data %>% 
+ #   filter(crs_number == crs)
+  
+  # Assign filtered data and product group to subpage_env 
+  assign("subpage_data", subpage_data, subpage_env)
+#  assign("subpage_comments", subpage_comments, subpage_env)
+  assign("course", crs, subpage_env)
+  
+  # Knit subpage.RMD using the subpage_env and add result to out vector
+  out = c(out, knitr::knit_child('subpage.RMD', envir = subpage_env))
+}
+```
+
+`r paste(knitr::knit_child(text = out), collapse = '')`

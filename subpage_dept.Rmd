@@ -1,0 +1,21 @@
+`r paste0('### ', dept_quest)`
+
+```{r}
+dept_plot = plot_data2 %>% 
+  mutate(number = paste("(", number, ")", sep = "")) %>% 
+  mutate(ncrs = paste(number, crs_number, sep = " ")) %>% 
+  mutate(ncrs = fct_reorder(ncrs, -ordering_num)) %>% 
+  filter(Question_num==dept_quest) %>%
+  ggplot(aes(x = response, y = ncrs))+
+  geom_point(aes(x = average, y = ncrs)) +
+  geom_vline(xintercept = plot_data2$response)+
+  scale_color_manual(values = c("dark red", "dark green"))+
+  labs(title = str_wrap(paste(plot_data2$question[1]), 100), x = "Response", y = "(n) Course Name")+  
+  geom_text(aes(x=response-.1, y=5, label=response_descr), 
+           size=4, angle=90)+
+  theme_bw()+
+  theme(legend.position = "none")  
+
+plotly::ggplotly(dept_plot)
+```
+

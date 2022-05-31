@@ -1,0 +1,36 @@
+`r paste0('# ', course, '{data-navmenu="Course Numeric"}')`
+
+`r shiny::tags$h1(course, style="text-align:center")`
+
+Quantitative assessment {.tabset}
+-----------------------------------------------------------------------
+
+```{r render subpages, include=FALSE}
+# Get all unique question names for the tabset
+quest <- sort(unique(subpage_data$Question_num)) 
+    
+# Create variable which stores all subpage tabset outputs
+out2 = NULL
+
+# Set knitr options to allow duplicate labels (needed for the subpages)
+options(knitr.duplicate.label = 'allow')
+
+# Create temporary environment which we use for knitting subpages.RMD for the tabset
+subpage_env2 <- new.env()
+
+#for loop for creating a plot for each question
+for (q in quest) {
+  # Filter data for question 
+  subpage_data2 <- subpage_data %>% 
+    filter(Question_num == q)
+  
+  # Assign filtered data and question to subpage_env2 
+  assign("subpage_data2", subpage_data2, subpage_env2)
+  assign("quest", q, subpage_env2)
+  
+  # Knit subpage.RMD using the subpage_env and add result to out vector
+  out2 = c(out2, knitr::knit_child('subpage2.RMD', envir = subpage_env2))
+}
+```
+
+`r paste(knitr::knit_child(text = out2), collapse = '')`
